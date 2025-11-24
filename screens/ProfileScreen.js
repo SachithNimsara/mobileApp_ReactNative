@@ -7,6 +7,7 @@ import {
   Image,
   Switch,
   Alert,
+  Platform,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -18,6 +19,7 @@ import { logout } from '../redux/slices/authSlice';
 import { toggleTheme } from '../redux/slices/themeSlice';
 import { clearFavorites } from '../redux/slices/favoritesSlice';
 import { clearExercises } from '../redux/slices/exercisesSlice';
+import { resetDailyWater } from '../redux/slices/waterIntakeSlice';
 import { COLORS, LAYOUT, STORAGE_KEYS } from '../utils/constants';
 
 const ProfileScreen = ({ navigation }) => {
@@ -33,29 +35,49 @@ const ProfileScreen = ({ navigation }) => {
   };
 
   const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            dispatch(logout());
-            dispatch(clearFavorites());
-            dispatch(clearExercises());
-            await AsyncStorage.multiRemove([
-              STORAGE_KEYS.AUTH_TOKEN,
-              STORAGE_KEYS.USER_DATA,
-            ]);
+    const confirmLogout = async () => {
+      try {
+        // Clear Redux state
+        dispatch(logout());
+        dispatch(clearFavorites());
+        dispatch(clearExercises());
+        dispatch(resetDailyWater());
+        
+        // Clear AsyncStorage
+        await AsyncStorage.multiRemove([
+          STORAGE_KEYS.AUTH_TOKEN,
+          STORAGE_KEYS.USER_DATA,
+          STORAGE_KEYS.FAVORITES,
+          STORAGE_KEYS.WATER_INTAKE,
+        ]);
+      } catch (error) {
+        console.error('Error during logout:', error);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      // For web, use confirm dialog
+      if (window.confirm('Are you sure you want to logout?')) {
+        confirmLogout();
+      }
+    } else {
+      // For mobile, use Alert
+      Alert.alert(
+        'Logout',
+        'Are you sure you want to logout?',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
           },
-        },
-      ]
-    );
+          {
+            text: 'Logout',
+            style: 'destructive',
+            onPress: confirmLogout,
+          },
+        ]
+      );
+    }
   };
 
   // Calculate stats
